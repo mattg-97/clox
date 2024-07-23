@@ -58,17 +58,21 @@ static void runFile(const char* path) {
 
 int main(int argc, const char* argv[]) {
     initVM();
-    /*Chunk chunk;
+    Chunk chunk;
     initChunk(&chunk);
+    
+    // we add the const value itself to the constant pool, which returns the index
     int constant = addConstant(&chunk, 1.2);
+    // then we write the instruction and its opcode
     writeChunk(&chunk, OP_CONSTANT, 123);
+    // then we write the operand next to it, see chunk.h for a diagram
     writeChunk(&chunk, constant, 123);
 
     constant = addConstant(&chunk, 3.4);
     writeChunk(&chunk, OP_CONSTANT, 123);
     writeChunk(&chunk, constant, 123);
 
-    writeChunk(&chunk, OP_ADD, 123);
+    writeConstant(&chunk, 12.9, 123);
 
     constant = addConstant(&chunk, 5.6);
     writeChunk(&chunk, OP_CONSTANT, 123);
@@ -81,15 +85,15 @@ int main(int argc, const char* argv[]) {
     writeChunk(&chunk, OP_RETURN, 123);
 
     disassembleChunk(&chunk, "test chunk");
-    interpret(&chunk);*/
-    if (argc == 1) {
+    //interpret(&chunk);
+    /*if (argc == 1) {
         repl();
     } else if (argc == 2) {
         runFile(argv[1]);
     } else {
         fprintf(stderr, "Usage: clox [path]\n");
         exit(64);
-    }
+    }*/
     freeVM();
     return 0;
 }

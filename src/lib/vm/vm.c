@@ -30,7 +30,10 @@ Value pop() {
 }
 
 static InterpretResult run() {
+//Reads the byte currently pointed at by instruction pointer, then increments
 #define READ_BYTE() (*vm.ip++)
+// Reads the next byte from bytecode ^, uses that as an index, then looks up the value
+// in the constants array
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
 #define BINARY_OP(op) \
     do { \
@@ -47,6 +50,8 @@ static InterpretResult run() {
         printf(" ]");
     }
     printf("\n");
+    // This function takes an integer offset, so we need to do some pointer math to convert
+    // ip back to its relative offset from the beginning of the bytecode
     disassembleInstruction(vm.chunk, (int)(vm.ip - vm.chunk->code));
 #endif
         uint8_t instruction;
