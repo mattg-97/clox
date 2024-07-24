@@ -1,5 +1,5 @@
 CC = clang
-CFLAGS = -g #-Wall -Werror
+CFLAGS = -g -Wall -Werror
 SRCDIR = src
 OBJDIR = obj
 BINDIR = bin
@@ -32,3 +32,6 @@ clean:
 
 bear:
 	bear -- make
+
+debug: $(TARGET)
+	lldb $(TARGET)
