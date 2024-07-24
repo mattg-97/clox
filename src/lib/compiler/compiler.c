@@ -49,7 +49,23 @@ static void advance() {
 
 void compile(const char* source, Chunk* chunk) {
     initScanner(source);
-    advance();
-    expression();
-    consume(TOKEN_EOF, "Expect end of expression");
+    int line = -1;
+    for (;;) {
+       Token token = scanToken();
+       // if token is on a different line
+       if (token.line != line) {
+         //print new line number and then set line to token line
+         printf("%4d ", token.line);
+         line = token.line;
+       } else {
+           // else just print the | character like we do in vm.run() debug mode
+         printf("   | ");
+       }
+       printf("%2d '%.*s'\n", token.type, token.length, token.start);
+
+       if (token.type == TOKEN_EOF) break;
+     }
+    //advance();
+    //expression();
+    //consume(TOKEN_EOF, "Expect end of expression");
 }

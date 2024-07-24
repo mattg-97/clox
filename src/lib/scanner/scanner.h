@@ -24,9 +24,13 @@ typedef enum {
 } TokenType;
 
 typedef struct {
+    // The type of the token.
     TokenType type;
+    // The start of the token in the source code.
     const char* start;
+    // The length of the token in the source code.
     int length;
+    // The line number where the token appears in the source code.
     int line;
 } Token;
 
