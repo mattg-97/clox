@@ -86,20 +86,27 @@ static InterpretResult run() {
 #undef BINARY_OP
 }
 
+// this interprets the source code
 InterpretResult interpret(const char* source) {
+    // create a chunk and init it
     Chunk chunk;
     initChunk(&chunk);
 
+    // if compile fails, free the chunk and return an error
     if (!compile(source, &chunk)) {
         freeChunk(&chunk);
         return INTERPRET_COMPILE_ERROR;
     }
 
+    // set the vm chunk to the created chunk
     vm.chunk = &chunk;
+    // set instruction pointer to the first opcode
     vm.ip = vm.chunk->code;
 
+    // interpret the result using the virtual machine
     InterpretResult result = run();
 
+    // free the chunk
     freeChunk(&chunk);
     return result;
 }
