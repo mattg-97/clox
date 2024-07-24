@@ -1,5 +1,6 @@
 #include <stdio.h>
 
+#include "chunk.h"
 #include "common.h"
 #include "compiler.h"
 #include "debug.h"
@@ -39,6 +40,9 @@ static InterpretResult run() {
 // Reads the next byte from bytecode ^, uses that as an index, then looks up the value
 // in the constants array
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
+// This is a creative use of the C pre processor, the outer while loop here is kind of
+// strange but basically is a pattern that allows us to write multi line macro statements
+// without any strange behaviour occuring
 #define BINARY_OP(op) \
     do { \
         double b = pop(); \
@@ -83,6 +87,19 @@ static InterpretResult run() {
 }
 
 InterpretResult interpret(const char* source) {
-    compile(source);
-    return INTERPRET_OK;
+    Chunk chunk;
+    initChunk(&chunk);
+
+    if (!compile(source, &chunk)) {
+        freeChunk(&chunk);
+        return INTERPRET_COMPILE_ERROR;
+    }
+
+    vm.chunk = &chunk;
+    vm.ip = vm.chunk->code;
+
+    InterpretResult result = run();
+
+    freeChunk(&chunk);
+    return result;
 }

@@ -50,7 +50,7 @@ static char* readFile(const char* path) {
 static void runFile(const char* path) {
   char* source = readFile(path);
   InterpretResult result = interpret(source);
-  free(source); 
+  free(source);
 
   if (result == INTERPRET_COMPILE_ERROR) exit(65);
   if (result == INTERPRET_RUNTIME_ERROR) exit(70);
@@ -58,9 +58,9 @@ static void runFile(const char* path) {
 
 int main(int argc, const char* argv[]) {
     initVM();
-    Chunk chunk;
+    /*Chunk chunk;
     initChunk(&chunk);
-    
+
     // we add the const value itself to the constant pool, which returns the index
     int constant = addConstant(&chunk, 1.2);
     // then we write the instruction and its opcode
@@ -72,7 +72,7 @@ int main(int argc, const char* argv[]) {
     writeChunk(&chunk, OP_CONSTANT, 123);
     writeChunk(&chunk, constant, 123);
 
-    writeConstant(&chunk, 12.9, 123);
+    writeChunk(&chunk, OP_ADD, 123);
 
     constant = addConstant(&chunk, 5.6);
     writeChunk(&chunk, OP_CONSTANT, 123);
@@ -82,18 +82,35 @@ int main(int argc, const char* argv[]) {
 
     writeChunk(&chunk, OP_NEGATE, 123);
 
-    writeChunk(&chunk, OP_RETURN, 123);
+    writeChunk(&chunk, OP_RETURN, 123);*/
 
-    disassembleChunk(&chunk, "test chunk");
+    // 1 * 2 = 3;
+    /*Chunk chunkTwo;
+    initChunk(&chunkTwo);
+    constant = addConstant(&chunkTwo, 1.0);
+    writeChunk(&chunkTwo, OP_CONSTANT, 1);
+    writeChunk(&chunkTwo, constant, 1);
+    constant = addConstant(&chunkTwo, 2.0);
+    writeChunk(&chunkTwo, OP_CONSTANT, 1);
+    writeChunk(&chunkTwo, constant, 1);
+    writeChunk(&chunkTwo, OP_MULTIPLY, 1);
+    constant = addConstant(&chunkTwo, 3.0);
+    writeChunk(&chunkTwo, OP_CONSTANT, 1);
+    writeChunk(&chunkTwo, constant, 1);
+    writeChunk(&chunkTwo, OP_ADD, 1);
+    writeChunk(&chunkTwo, OP_RETURN, 123);
+    disassembleChunk(&chunkTwo, "chunk two");
+    interpret(&chunkTwo);*/
+    //disassembleChunk(&chunk, "test chunk");
     //interpret(&chunk);
-    /*if (argc == 1) {
+    if (argc == 1) {
         repl();
     } else if (argc == 2) {
         runFile(argv[1]);
     } else {
         fprintf(stderr, "Usage: clox [path]\n");
         exit(64);
-    }*/
+    }
     freeVM();
     return 0;
 }
