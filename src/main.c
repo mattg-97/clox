@@ -8,52 +8,71 @@
 #include "vm.h"
 
 static void repl() {
+    // our repl here has a hard coded line length limit, this is not the norm
+    // but is okay for our purposes
     char line[1024];
     for (;;) {
+        // print a helper character at the start of each repl line
         printf("> ");
+        // get stdin and load into char array
         if (!fgets(line, sizeof(line), stdin)) {
             printf("\n");
             break;
         }
+        // interpret that line
         interpret(line);
     }
 }
 
 static char* readFile(const char* path) {
-  FILE* file = fopen(path, "rb");
-  if (file == NULL) {
-    fprintf(stderr, "Could not open file \"%s\".\n", path);
-    exit(74);
-  }
+    // open the filej
+    FILE* file = fopen(path, "rb");
+    // print a logical error response if unable to open the file
+    if (file == NULL) {
+        fprintf(stderr, "Could not open file \"%s\".\n", path);
+        exit(74);
+    }
 
-  fseek(file, 0L, SEEK_END);
-  size_t fileSize = ftell(file);
-  rewind(file);
+    // seek basically allows us to walk through the entire file, by passing
+    // in SEEK END we go to the end of the file
+    fseek(file, 0L, SEEK_END);
+    // ftell then tells us how many bytes we are from the start of the file
+    size_t fileSize = ftell(file);
+    // we then rewind back to the beginning of the file
+    rewind(file);
 
-  char* buffer = (char*)malloc(fileSize + 1);
-  if (buffer == NULL) {
-    fprintf(stderr, "Not enough memory to read \"%s\".\n", path);
-    exit(74);
-  }
-  size_t bytesRead = fread(buffer, sizeof(char), fileSize, file);
-  if (bytesRead < fileSize) {
-    fprintf(stderr, "Could not read file \"%s\".\n", path);
-    exit(74);
-  }
-  buffer[bytesRead] = '\0';
+    // then we allocate a char buffer of that size
+    char* buffer = (char*)malloc(fileSize + 1);
+    if (buffer == NULL) {
+        // will only happen if OS doesnt have enough memory to read file in
+        fprintf(stderr, "Not enough memory to read \"%s\".\n", path);
+        exit(74);
+    }
+    // then we read the whole file in a single batch
+    size_t bytesRead = fread(buffer, sizeof(char), fileSize, file);
+    if (bytesRead < fileSize) {
+        fprintf(stderr, "Could not read file \"%s\".\n", path);
+        exit(74);
+    }
+    buffer[bytesRead] = '\0';
 
-  fclose(file);
-  return buffer;
+    fclose(file);
+    return buffer;
 }
 
 
 static void runFile(const char* path) {
-  char* source = readFile(path);
-  InterpretResult result = interpret(source);
-  free(source);
+    // read in the file
+    char* source = readFile(path);
+    // interpret the source code
+    InterpretResult result = interpret(source);
+    // then free the char array (we need to do this because readfile dynamically
+    // allocates the memory and then passes ownership to this function)
+    free(source);
 
-  if (result == INTERPRET_COMPILE_ERROR) exit(65);
-  if (result == INTERPRET_RUNTIME_ERROR) exit(70);
+    // exit codes differ for each error
+    if (result == INTERPRET_COMPILE_ERROR) exit(65);
+    if (result == INTERPRET_RUNTIME_ERROR) exit(70);
 }
 
 int main(int argc, const char* argv[]) {
