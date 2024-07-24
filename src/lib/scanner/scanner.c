@@ -36,6 +36,7 @@ static Token makeToken(TokenType type) {
     token.start = scanner.start;
     token.length = (int)(scanner.current - scanner.start);
     token.line = scanner.line;
+    //printf("Token: type = %i, start = %s, length = %i, line = %i\n", token.type, token.start, token.length, token.line);
     return token;
 }
 
@@ -153,7 +154,7 @@ static Token number() {
 
 static bool isAlpha(char c) {
     return (c >= 'a' && c <= 'z') ||
-            (c >- 'A' && c <= 'Z') ||
+            (c >= 'A' && c <= 'Z') ||
             // we want to be able to have variables such as hello_func
             c == '_';
 }
@@ -229,6 +230,7 @@ Token scanToken() {
     // check for alpha or digit
     if (isAlpha(c)) return identifier();
     if (isDigit(c)) return number();
+
     // switch on the characters and return correct tokens
     switch (c) {
         case '(': return makeToken(TOKEN_LEFT_PAREN);

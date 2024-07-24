@@ -6,6 +6,9 @@
 #include "chunk.h"
 #include "common.h"
 #include "compiler.h"
+#ifdef DEBUG_PRINT_CODE
+#include "debug.h"
+#endif
 #include "scanner.h"
 
 typedef struct {
@@ -34,6 +37,7 @@ typedef enum {
 // a simple typedef for a function type that takes no args and returns nothing
 typedef void (*ParseFn)();
 
+// this represents a single row in the rules table
 typedef struct {
     ParseFn prefix;
     ParseFn infix;
@@ -47,24 +51,24 @@ Chunk* compilingChunk;
 static void expression();
 static ParseRule* getRule(TokenType type);
 static void parsePrecedence(Precedence precedence);
-static Chunk* currentChunk();
-static void errorAt(Token* token, const char* message);
-static void error(const char* message);
-static void errorAtCurrent(const char* message);
-static void advance();
-static void consume(TokenType type, const char* message);
-static void emitByte(uint8_t byte);
-static void emitBytes(uint8_t byte1, uint8_t byte2);
-static void emitReturn();
-static void endCompiler();
-static ParseRule* getRule(TokenType type);
-static void binary();
-static void expression();
-static void grouping();
-static uint8_t makeConstant(Value value);
-static void emitConstant(Value value);
-static void number();
-static void unary();
+//static Chunk* currentChunk();
+//static void errorAt(Token* token, const char* message);
+//static void error(const char* message);
+//static void errorAtCurrent(const char* message);
+//static void advance();
+//static void consume(TokenType type, const char* message);
+//static void emitByte(uint8_t byte);
+//static void emitBytes(uint8_t byte1, uint8_t byte2);
+//static void emitReturn();
+//static void endCompiler();
+//static ParseRule* getRule(TokenType type);
+//static void binary();
+//static void expression();
+//static void grouping();
+//static uint8_t makeConstant(Value value);
+//static void emitConstant(Value value);
+//static void number();
+//static void unary();
 
 static Chunk* currentChunk() {
     return compilingChunk;
@@ -117,6 +121,7 @@ static void advance() {
     for (;;) {
         // uses the scanner to get the current token
         parser.current = scanToken();
+        printf("Token: %d\n", parser.current.type);
         // if its an error then break out of the loop
         if (parser.current.type != TOKEN_ERROR) break;
 
@@ -156,13 +161,128 @@ static void emitReturn() {
 // opcode to the final byte in the chunk
 static void endCompiler() {
     emitReturn();
+#ifdef DEBUG_PRINT_CODE
+    if (!parser.hadError) {
+        disassembleChunk(currentChunk(), "code");
+    }
+#endif
 }
 
 
+// this function starts at the current token and parses any expression at the given
+// precedence level or higher
 static void parsePrecedence(Precedence precedence) {
+    // first we read the next token
+    advance();
+    // then look up the corresponding parse rule
+    ParseFn prefixRule = getRule(parser.previous.type)->prefix;
+    // if there is no parse rule then there must be a syntax error so we report that and
+    // return to the caller
+    if (prefixRule == NULL) {
+        error("Expect expression");
+        return;
+    }
+    // otherwise we call that prefix parse function and let it do its thing
+    prefixRule();
 
+    // now we look up an infix parser for the next token, and if we find one it means that
+    // the prefix expression we already compiled may be an operand for it.
+    // But only if the precedence is low enough to permit this infix operation
+    // if the precedence is too low, or isnt an infix operator at all, were done and we
+    // have parsed all we need to.
+    while (precedence <= getRule(parser.current.type)->precedence) {
+        advance();
+        ParseFn infixRule = getRule(parser.previous.type)->infix;
+        infixRule();
+    }
 }
 
+// when this is called the entire first operand and operator will have already been consumed
+// eg. 1 + 2 (1 + ) will have been consumed.
+// so the compiler will add 1 onto the stack, then 2, then the plus operator
+static void binary() {
+    // therefore the operator is the previous token
+    TokenType operatorType = parser.previous.type;
+    // this is where the precedence takes place, when we parse the right hand operand
+    // eg. 2 * 3 + 4 (right hand operand is 3 in this case), we dont need to capture
+    // 3 + 4 becasue it is a lower precedence
+    ParseRule* rule = getRule(operatorType);
+    parsePrecedence((Precedence)(rule->precedence + 1));
+
+    switch (operatorType) {
+        case TOKEN_PLUS: emitByte(OP_ADD); break;
+        case TOKEN_MINUS: emitByte(OP_SUBTRACT); break;
+        case TOKEN_STAR: emitByte(OP_MULTIPLY); break;
+        case TOKEN_SLASH: emitByte(OP_DIVIDE); break;
+        default: return; //unreachable
+    }
+}
+
+static void expression() {
+    // say we had '-a.b + c' as our expression
+    // when we call this function, it will parse the entire expression because
+    // + has a higher precendence than assignment. If we were to call it with
+    // PREC_UNARY then it would only compile '-a.b' and stop there because addition
+    // has lower precedence than unary operators
+    parsePrecedence(PREC_ASSIGNMENT);
+}
+
+static void grouping() {
+    expression();
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
+}
+
+// turns a value into a constant and adds it to the chunks constant array
+static uint8_t makeConstant(Value value) {
+    // add the value to the current chunks data region and return its index
+    int constant = addConstant(currentChunk(), value);
+    // check for error
+    if (constant > UINT8_MAX) {
+        error("Too many constants in one chunk");
+        return 0;
+    }
+
+    // return that constant cast to a byte
+    return (uint8_t)constant;
+}
+
+static void emitConstant(Value value) {
+    emitBytes(OP_CONSTANT, makeConstant(value));
+}
+
+static void number() {
+    // we assume that the number literal has been consumed and is stored in previous
+    // then we use the c std library function to parse it to a double
+    double value = strtod(parser.previous.start, NULL);
+    printf("Number: %f\n", value);
+    emitConstant(value);
+}
+
+static void unary() {
+    // the leading '-' has been consumed and is sitting in the previous token
+    TokenType operatorType = parser.previous.type;
+
+    // compile the operand
+    // we use PREC_UNARY precedence to permit nested unary expressions like !!doubleNegative
+    parsePrecedence(PREC_UNARY);
+
+    // it might seem strange to compile the operand and then emit the negation byte
+    // however the order of execution is as follows:
+    // 1. We evaluate the operand first, leaving its value on the stack
+    // 2. Then we pop that value, negate it, and push the result back on the stack
+    // that means the negate instruciton should be pushed last, this is part of
+    // the compilers job, parsing the source code and rearranging it into the order
+    // that execution happens in our vm
+
+    // emit the operator instruction
+    switch (operatorType) {
+        case TOKEN_MINUS: emitByte(OP_NEGATE); break;
+        default: return; //unreachable
+    }
+}
+
+// we can see here how grouping and unary are fitted into the prefix operators,
+// and how the 4 binary operators are in the infix column
 ParseRule rules[] = {
   [TOKEN_LEFT_PAREN]    = {grouping, NULL,   PREC_NONE},
   [TOKEN_RIGHT_PAREN]   = {NULL,     NULL,   PREC_NONE},
@@ -206,85 +326,10 @@ ParseRule rules[] = {
   [TOKEN_EOF]           = {NULL,     NULL,   PREC_NONE},
 };
 
+// this function simple returns the rule at a gives index, and is called by binary() to look
+// up the precedence of the current operator
 static ParseRule* getRule(TokenType type) {
     return &rules[type];
-}
-
-static void binary() {
-    TokenType operatorType = parser.previous.type;
-    ParseRule* rule = getRule(operatorType);
-    parsePrecedence((Precedence)(rule->precedence + 1));
-
-    switch (operatorType) {
-        case TOKEN_PLUS: emitByte(OP_ADD); break;
-        case TOKEN_MINUS: emitByte(OP_SUBTRACT); break;
-        case TOKEN_STAR: emitByte(OP_MULTIPLY); break;
-        case TOKEN_SLASH: emitByte(OP_DIVIDE); break;
-        default: return; //unreachable
-
-    }
-}
-
-static void expression() {
-    // say we had '-a.b + c' as our expression
-    // when we call this function, it will parse the entire expression because
-    // + has a higher precendence than assignment. If we were to call it with
-    // PREC_UNARY then it would only compile '-a.b' and stop there because addition
-    // has lower precedence than unary operators
-    parsePrecedence(PREC_ASSIGNMENT);
-}
-
-static void grouping() {
-    expression();
-    consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
-}
-
-// turns a value into a constant and adds it to the chunks constant array
-static uint8_t makeConstant(Value value) {
-    // add the value to the current chunks data region and return its index
-    int constant = addConstant(currentChunk(), value);
-    // check for error
-    if (constant > UINT8_MAX) {
-        error("Too many constants in one chunk");
-        return 0;
-    }
-
-    // return that constant cast to a byte
-    return (uint8_t)constant;
-}
-
-static void emitConstant(Value value) {
-    emitBytes(OP_CONSTANT, makeConstant(value));
-}
-
-static void number() {
-    // we assume that the number literal has been consumed and is stored in previous
-    // then we use the c std library function to parse it to a double
-    double value = strtod(parser.previous.start, NULL);
-    emitConstant(value);
-}
-
-static void unary() {
-    // the leading '-' has been consumed and is sitting in the previous token
-    TokenType operatorType = parser.previous.type;
-
-    // compile the operand
-    // we use PREC_UNARY precedence to permit nested unary expressions like !!doubleNegative
-    parsePrecedence(PREC_UNARY);
-
-    // it might seem strange to compile the operand and then emit the negation byte
-    // however the order of execution is as follows:
-    // 1. We evaluate the operand first, leaving its value on the stack
-    // 2. Then we pop that value, negate it, and push the result back on the stack
-    // that means the negate instruciton should be pushed last, this is part of
-    // the compilers job, parsing the source code and rearranging it into the order
-    // that execution happens in our vm
-
-    // emit the operator instruction
-    switch (operatorType) {
-        case TOKEN_MINUS: emitByte(OP_NEGATE); break;
-        default: return; //unreachable
-    }
 }
 
 
