@@ -3,9 +3,11 @@
 
 #include <common.h>
 
+#define ALLOCATE(type, count) \
+    (type*)reallocate(NULL, 0, sizeof(type) * (count))
 
 // this macro calculates a new capacity based on the current capaciuty
-// in order to get the performance we want, it must be scaled based on the 
+// in order to get the performance we want, it must be scaled based on the
 // old size, in this case we are growing by a factor of 2, although 1.5x is
 // also used commonly. If the capacity is 0 then we just jump straight to 8
 // using amortized analysis we can grow the array in O(1) time when taken over
