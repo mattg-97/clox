@@ -16,16 +16,20 @@ void initVM() {
 }
 
 void freeVM() {
-
 }
 
 void push(Value value) {
+    // this line stores value in the array element at the top of the stack,
+    // remember here that stacktop points past the last used element
     *vm.stackTop = value;
+    // stackTop (which is a pointer) is then incremented using pointer arithmetic
     vm.stackTop++;
 }
 
 Value pop() {
+    // opposite to pop, go back one step by decrementing the stack top
     vm.stackTop--;
+    // then return that value (dereferenced)
     return *vm.stackTop;
 }
 

@@ -1,0 +1,154 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-g",
+      "-Isrc",
+      "-Isrc/lib",
+      "-Isrc/lib/utils",
+      "-Isrc/lib/vm",
+      "-Isrc/lib/scanner",
+      "-Isrc/lib/compiler",
+      "-c",
+      "-o",
+      "obj/main.o",
+      "src/main.c"
+    ],
+    "directory": "/Users/matthewgill/dev/C/clox",
+    "file": "/Users/matthewgill/dev/C/clox/src/main.c",
+    "output": "/Users/matthewgill/dev/C/clox/obj/main.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-g",
+      "-Isrc",
+      "-Isrc/lib",
+      "-Isrc/lib/utils",
+      "-Isrc/lib/vm",
+      "-Isrc/lib/scanner",
+      "-Isrc/lib/compiler",
+      "-c",
+      "-o",
+      "obj/lib/utils/memory.o",
+      "src/lib/utils/memory.c"
+    ],
+    "directory": "/Users/matthewgill/dev/C/clox",
+    "file": "/Users/matthewgill/dev/C/clox/src/lib/utils/memory.c",
+    "output": "/Users/matthewgill/dev/C/clox/obj/lib/utils/memory.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-g",
+      "-Isrc",
+      "-Isrc/lib",
+      "-Isrc/lib/utils",
+      "-Isrc/lib/vm",
+      "-Isrc/lib/scanner",
+      "-Isrc/lib/compiler",
+      "-c",
+      "-o",
+      "obj/lib/utils/debug.o",
+      "src/lib/utils/debug.c"
+    ],
+    "directory": "/Users/matthewgill/dev/C/clox",
+    "file": "/Users/matthewgill/dev/C/clox/src/lib/utils/debug.c",
+    "output": "/Users/matthewgill/dev/C/clox/obj/lib/utils/debug.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-g",
+      "-Isrc",
+      "-Isrc/lib",
+      "-Isrc/lib/utils",
+      "-Isrc/lib/vm",
+      "-Isrc/lib/scanner",
+      "-Isrc/lib/compiler",
+      "-c",
+      "-o",
+      "obj/lib/utils/chunk.o",
+      "src/lib/utils/chunk.c"
+    ],
+    "directory": "/Users/matthewgill/dev/C/clox",
+    "file": "/Users/matthewgill/dev/C/clox/src/lib/utils/chunk.c",
+    "output": "/Users/matthewgill/dev/C/clox/obj/lib/utils/chunk.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-g",
+      "-Isrc",
+      "-Isrc/lib",
+      "-Isrc/lib/utils",
+      "-Isrc/lib/vm",
+      "-Isrc/lib/scanner",
+      "-Isrc/lib/compiler",
+      "-c",
+      "-o",
+      "obj/lib/utils/value.o",
+      "src/lib/utils/value.c"
+    ],
+    "directory": "/Users/matthewgill/dev/C/clox",
+    "file": "/Users/matthewgill/dev/C/clox/src/lib/utils/value.c",
+    "output": "/Users/matthewgill/dev/C/clox/obj/lib/utils/value.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-g",
+      "-Isrc",
+      "-Isrc/lib",
+      "-Isrc/lib/utils",
+      "-Isrc/lib/vm",
+      "-Isrc/lib/scanner",
+      "-Isrc/lib/compiler",
+      "-c",
+      "-o",
+      "obj/lib/vm/vm.o",
+      "src/lib/vm/vm.c"
+    ],
+    "directory": "/Users/matthewgill/dev/C/clox",
+    "file": "/Users/matthewgill/dev/C/clox/src/lib/vm/vm.c",
+    "output": "/Users/matthewgill/dev/C/clox/obj/lib/vm/vm.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-g",
+      "-Isrc",
+      "-Isrc/lib",
+      "-Isrc/lib/utils",
+      "-Isrc/lib/vm",
+      "-Isrc/lib/scanner",
+      "-Isrc/lib/compiler",
+      "-c",
+      "-o",
+      "obj/lib/scanner/scanner.o",
+      "src/lib/scanner/scanner.c"
+    ],
+    "directory": "/Users/matthewgill/dev/C/clox",
+    "file": "/Users/matthewgill/dev/C/clox/src/lib/scanner/scanner.c",
+    "output": "/Users/matthewgill/dev/C/clox/obj/lib/scanner/scanner.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-g",
+      "-Isrc",
+      "-Isrc/lib",
+      "-Isrc/lib/utils",
+      "-Isrc/lib/vm",
+      "-Isrc/lib/scanner",
+      "-Isrc/lib/compiler",
+      "-c",
+      "-o",
+      "obj/lib/compiler/compiler.o",
+      "src/lib/compiler/compiler.c"
+    ],
+    "directory": "/Users/matthewgill/dev/C/clox",
+    "file": "/Users/matthewgill/dev/C/clox/src/lib/compiler/compiler.c",
+    "output": "/Users/matthewgill/dev/C/clox/obj/lib/compiler/compiler.o"
+  }
+]

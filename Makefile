@@ -1,16 +1,34 @@
 CC = clang
 CFLAGS = -g #-Wall -Werror
-CFILES=$(shell find . -type f -name "*.c")
-INCLUDES = -Isrc $(shell find src/lib -type d -exec echo -I{} \;)
-assembly=clox
+SRCDIR = src
+OBJDIR = obj
+BINDIR = bin
+TARGET = $(BINDIR)/clox
 
-default: run
+# Find all .c files recursively
+SRCS = $(shell find $(SRCDIR) -type f -name "*.c")
+# Generate corresponding .o file names
+OBJS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRCS))
+# Generate include directories
+INCLUDES = -I$(SRCDIR) $(shell find $(SRCDIR)/lib -type d -exec echo -I{} \;)
 
-run: build 
-	./bin/clox
+.PHONY: all clean run bear
 
-build:
-	$(CC) $(CFLAGS) $(INCLUDES) $(CFILES) -o bin/$(assembly)
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	@mkdir -p $(BINDIR)
+	$(CC) $(CFLAGS) $^ -o $@
+
+$(OBJDIR)/%.o: $(SRCDIR)/%.c
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+run: $(TARGET)
+	./$(TARGET)
 
 clean:
-	rm -rf ./bin/*
+	rm -rf $(OBJDIR) $(BINDIR)
+
+bear:
+	bear -- make
