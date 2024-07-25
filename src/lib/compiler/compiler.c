@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "chunk.h"
 #include "common.h"
@@ -36,7 +37,7 @@ typedef enum {
 } Precedence;
 
 // a simple typedef for a function type that takes no args and returns nothing
-typedef void (*ParseFn)();
+typedef void (*ParseFn)(bool canAssign);
 
 // this represents a single row in the rules table
 typedef struct {
@@ -45,11 +46,25 @@ typedef struct {
     Precedence precedence;
 } ParseRule;
 
+typedef struct {
+  Token name;
+  int depth;
+} Local;
+
+typedef struct {
+  Local locals[UINT8_COUNT];
+  int localCount;
+  int scopeDepth;
+} Compiler;
+
 Parser parser;
+Compiler* current = NULL;
 Chunk* compilingChunk;
 
 // forward declarations because why not
 static void expression();
+static void statement();
+static void declaration();
 static ParseRule* getRule(TokenType type);
 static void parsePrecedence(Precedence precedence);
 //static Chunk* currentChunk();
@@ -129,6 +144,21 @@ static void advance() {
     }
 }
 
+// turns a value into a constant and adds it to the chunks constant array
+static uint8_t makeConstant(Value value) {
+    printf("MAKE CONST\n");
+    // add the value to the current chunks data region and return its index
+    int constant = addConstant(currentChunk(), value);
+    // check for error
+    if (constant > UINT8_MAX) {
+        error("Too many constants in one chunk");
+        return 0;
+    }
+    printf("CONST: %d\n", constant);
+
+    // return that constant cast to a byte
+    return (uint8_t)constant;
+}
 // similar to advance in that it reads the next token, but it also validates that
 // the token has the correct type
 static void consume(TokenType type, const char* message) {
@@ -138,6 +168,16 @@ static void consume(TokenType type, const char* message) {
     }
     // if the type isnt correct, return an error
     errorAtCurrent(message);
+}
+
+static bool check(TokenType type) {
+    return parser.current.type == type;
+}
+
+static bool match(TokenType type) {
+    if (!check(type)) return false;
+    advance();
+    return true;
 }
 
 // we start by appending a byte to a chunk, it may be an opcode or an operand,
@@ -182,8 +222,9 @@ static void parsePrecedence(Precedence precedence) {
         error("Expect expression");
         return;
     }
+    bool canAssign = precedence <= PREC_ASSIGNMENT;
     // otherwise we call that prefix parse function and let it do its thing
-    prefixRule();
+    prefixRule(canAssign);
 
     // now we look up an infix parser for the next token, and if we find one it means that
     // the prefix expression we already compiled may be an operand for it.
@@ -193,14 +234,61 @@ static void parsePrecedence(Precedence precedence) {
     while (precedence <= getRule(parser.current.type)->precedence) {
         advance();
         ParseFn infixRule = getRule(parser.previous.type)->infix;
-        infixRule();
+        infixRule(canAssign);
     }
+    if (canAssign && match(TOKEN_EQUAL)) {
+        error("Invalid assignment target.");
+    }
+}
+
+static uint8_t identifierConstant(Token* name) {
+  return makeConstant(OBJ_VAL(copyString(name->start,
+                                         name->length)));
+}
+
+static void addLocal(Token name) {
+    if (current->localCount == UINT8_COUNT) {
+        error("Too many local variables in function.");
+        return;
+      }
+  Local* local = &current->locals[current->localCount++];
+  local->name = name;
+  local->depth = -1;
+}
+
+static bool identifiersEqual(Token* a, Token* b) {
+  if (a->length != b->length) return false;
+  return memcmp(a->start, b->start, a->length) == 0;
+}
+
+static void declareVariable() {
+  if (current->scopeDepth == 0) return;
+
+  Token* name = &parser.previous;
+  for (int i = current->localCount - 1; i >= 0; i--) {
+      Local* local = &current->locals[i];
+      if (local->depth != -1 && local->depth < current->scopeDepth) {
+        break;
+      }
+
+      if (identifiersEqual(name, &local->name)) {
+        error("Already a variable with this name in this scope.");
+      }
+    }
+  addLocal(*name);
+}
+
+static uint8_t parseVariable(const char* errorMessage) {
+  consume(TOKEN_IDENTIFIER, errorMessage);
+  declareVariable();
+  if (current->scopeDepth > 0) return 0;
+  return identifierConstant(&parser.previous);
 }
 
 // when this is called the entire first operand and operator will have already been consumed
 // eg. 1 + 2 (1 + ) will have been consumed.
 // so the compiler will add 1 onto the stack, then 2, then the plus operator
-static void binary() {
+static void binary(bool canAssign) {
     // therefore the operator is the previous token
     TokenType operatorType = parser.previous.type;
     // this is where the precedence takes place, when we parse the right hand operand
@@ -224,7 +312,7 @@ static void binary() {
     }
 }
 
-static void literal() {
+static void literal(bool canAssign) {
     switch (parser.previous.type) {
         case TOKEN_FALSE: emitByte(OP_FALSE); break;
         case TOKEN_NIL: emitByte(OP_NIL); break;
@@ -242,30 +330,139 @@ static void expression() {
     parsePrecedence(PREC_ASSIGNMENT);
 }
 
-static void grouping() {
+static void expressionStatement() {
+    printf("EXPRESSION STATEMENT\n");
+    expression();
+    consume(TOKEN_SEMICOLON, "Expect ';' after expression");
+    emitByte(OP_POP);
+}
+
+static void printStatement() {
+    printf("PRINT STATEMENT\n");
+    expression();
+    consume(TOKEN_SEMICOLON, "Expect ';' after value.");
+    emitByte(OP_PRINT);
+}
+
+static void synchronize() {
+    parser.panicMode = false;
+
+      while (parser.current.type != TOKEN_EOF) {
+        if (parser.previous.type == TOKEN_SEMICOLON) return;
+        switch (parser.current.type) {
+          case TOKEN_CLASS:
+          case TOKEN_FUN:
+          case TOKEN_VAR:
+          case TOKEN_FOR:
+          case TOKEN_IF:
+          case TOKEN_WHILE:
+          case TOKEN_PRINT:
+          case TOKEN_RETURN:
+            return;
+
+          default:
+            ; // Do nothing.
+        }
+
+        advance();
+      }
+}
+
+static void markInitialized() {
+  current->locals[current->localCount - 1].depth =
+      current->scopeDepth;
+}
+
+static void defineVariable(uint8_t global) {
+    if (current->scopeDepth > 0) {
+        markInitialized();
+        return;
+    }
+  emitBytes(OP_DEFINE_GLOBAL, global);
+}
+
+static void varDeclaration() {
+    printf("VAR_DEC\n");
+  uint8_t global = parseVariable("Expect variable name.");
+
+  printf("VAR_PARSED: %d\n", global);
+
+
+  if (match(TOKEN_EQUAL)) {
+    expression();
+  } else {
+    emitByte(OP_NIL);
+  }
+  printf("PASSED\n");
+  consume(TOKEN_SEMICOLON,
+          "Expect ';' after variable declaration.");
+
+  defineVariable(global);
+}
+
+static void declaration() {
+    if (match(TOKEN_VAR)) {
+        varDeclaration();
+    } else {
+        statement();
+    }
+    if (parser.panicMode) synchronize();
+}
+
+static void block() {
+    while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
+       declaration();
+     }
+
+     consume(TOKEN_RIGHT_BRACE, "Expect '}' after block.");
+}
+
+static void beginScope() {
+  current->scopeDepth++;
+}
+
+static void endScope() {
+  current->scopeDepth--;
+  while (current->localCount > 0 &&
+          current->locals[current->localCount - 1].depth >
+             current->scopeDepth) {
+     emitByte(OP_POP);
+     current->localCount--;
+   }
+}
+
+static void statement() {
+    printf("Statement\n");
+    if (match(TOKEN_PRINT)) {
+        printStatement();
+    } else if (match(TOKEN_LEFT_BRACE)) {
+        beginScope();
+        block();
+        endScope();
+
+    } else {
+        expressionStatement();
+    }
+}
+
+static void grouping(bool canAssign) {
     expression();
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
 
-// turns a value into a constant and adds it to the chunks constant array
-static uint8_t makeConstant(Value value) {
-    // add the value to the current chunks data region and return its index
-    int constant = addConstant(currentChunk(), value);
-    // check for error
-    if (constant > UINT8_MAX) {
-        error("Too many constants in one chunk");
-        return 0;
-    }
 
-    // return that constant cast to a byte
-    return (uint8_t)constant;
-}
 
 static void emitConstant(Value value) {
     emitBytes(OP_CONSTANT, makeConstant(value));
 }
 
-static void number() {
+static void initCompiler(Compiler* compiler) {
+    compiler->localCount = 0;
+    compiler->scopeDepth = 0;
+    current = compiler;
+}
+
+static void number(bool canAssign) {
     // we assume that the number literal has been consumed and is stored in previous
     // then we use the c std library function to parse it to a double
     double value = strtod(parser.previous.start, NULL);
@@ -273,14 +470,53 @@ static void number() {
     emitConstant(NUMBER_VAL(value));
 }
 
-static void string() {
+static void string(bool canAssign) {
     // the + 1 and - 2 here trim the quotatin marks and just returns the string value itself
     // it then creates the string object, wraps it in a value and adds it to the constant table
   emitConstant(OBJ_VAL(copyString(parser.previous.start + 1,
                                   parser.previous.length - 2)));
 }
 
-static void unary() {
+static int resolveLocal(Compiler* compiler, Token* name) {
+  for (int i = compiler->localCount - 1; i >= 0; i--) {
+    Local* local = &compiler->locals[i];
+    if (identifiersEqual(name, &local->name)) {
+        if (local->depth == -1) {
+                error("Can't read local variable in its own initializer.");
+              }
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+static void namedVariable(Token name, bool canAssign) {
+    uint8_t getOp, setOp;
+    int arg = resolveLocal(current, &name);
+    if (arg != -1) {
+        getOp = OP_GET_LOCAL;
+        setOp = OP_SET_LOCAL;
+    } else {
+        arg = identifierConstant(&name);
+        getOp = OP_GET_GLOBAL;
+        setOp = OP_SET_GLOBAL;
+    }
+
+    if (canAssign && match(TOKEN_EQUAL)) {
+        expression();
+        emitBytes(setOp, (uint8_t)arg);
+    } else {
+        emitBytes(getOp, (uint8_t)arg);
+    }
+}
+
+static void variable(bool canAssign) {
+    namedVariable(parser.previous, canAssign);
+}
+
+
+static void unary(bool canAssign) {
     // the leading '-' has been consumed and is sitting in the previous token
     TokenType operatorType = parser.previous.type;
 
@@ -326,7 +562,7 @@ ParseRule rules[] = {
   [TOKEN_GREATER_EQUAL] = {NULL,     binary, PREC_COMPARISON},
   [TOKEN_LESS]          = {NULL,     binary, PREC_COMPARISON},
   [TOKEN_LESS_EQUAL]    = {NULL,     binary, PREC_COMPARISON},
-  [TOKEN_IDENTIFIER]    = {NULL,     NULL,   PREC_NONE},
+  [TOKEN_IDENTIFIER]    = {variable, NULL,   PREC_NONE},
   [TOKEN_STRING]        = {string,   NULL,   PREC_NONE},
   [TOKEN_NUMBER]        = {number,   NULL,   PREC_NONE},
   [TOKEN_AND]           = {NULL,     NULL,   PREC_NONE},
@@ -358,6 +594,8 @@ static ParseRule* getRule(TokenType type) {
 
 bool compile(const char* source, Chunk* chunk) {
     initScanner(source);
+    Compiler compiler;
+    initCompiler(&compiler);
     // set compiling chunk to chunk parameter
     compilingChunk = chunk;
     // set error flags to false
@@ -365,10 +603,10 @@ bool compile(const char* source, Chunk* chunk) {
     parser.panicMode = false;
     // primes the scanner
     advance();
-    // parse a single expression
-    expression();
-    // we should now be at the end of the source code so check for token
-    consume(TOKEN_EOF, "Expect end of expression");
+    while (!match(TOKEN_EOF)) {
+        printf("x\n");
+        declaration();
+    }
     // wrap things up
     endCompiler();
     // if the parser had no error then compilation was a success so we return true

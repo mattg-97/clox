@@ -37,10 +37,12 @@ static void runtimeError(const char* format, ...) {
 void initVM() {
     resetStack();
     vm.objects = NULL;
+    initTable(&vm.globals);
     initTable(&vm.strings);
 }
 
 void freeVM() {
+    freeTable(&vm.globals);
     freeTable(&vm.strings);
     freeObjects();
 }
@@ -88,6 +90,7 @@ static InterpretResult run() {
 // Reads the next byte from bytecode ^, uses that as an index, then looks up the value
 // in the constants array
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
+#define READ_STRING() AS_STRING(READ_CONSTANT())
 // This is a creative use of the C pre processor, the outer while loop here is kind of
 // strange but basically is a pattern that allows us to write multi line macro statements
 // without any strange behaviour occuring
@@ -124,6 +127,35 @@ static InterpretResult run() {
             case OP_NIL: push(NIL_VAL); break;
             case OP_TRUE: push(BOOL_VAL(true)); break;
             case OP_FALSE: push(BOOL_VAL(false)); break;
+            case OP_POP: pop(); break;
+            case OP_GET_LOCAL: {
+                uint8_t slot = READ_BYTE();
+                push(vm.stack[slot]);
+                break;
+            }
+            case OP_SET_LOCAL: {
+                uint8_t slot = READ_BYTE();
+                vm.stack[slot] = peek(0);
+                break;
+            }
+            case OP_GET_GLOBAL: {
+                ObjString* name = READ_STRING();
+                printf("NAME: %s\n", name->chars);
+                Value value;
+                if (!tableGet(&vm.globals, name, &value)) {
+                    runtimeError("Undefined variable '%s'.", name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                printf("GOT: %s\n", AS_STRING(value)->chars);
+                push(value);
+                break;
+            }
+            case OP_DEFINE_GLOBAL: {
+                ObjString* name = READ_STRING();
+                tableSet(&vm.globals, name, peek(0));
+                pop();
+                break;
+            }
             case OP_EQUAL: {
                 Value b = pop();
                 Value a = pop();
@@ -161,9 +193,12 @@ static InterpretResult run() {
                     return INTERPRET_RUNTIME_ERROR;
                 }
             push(NUMBER_VAL(-AS_NUMBER(pop()))); break;
-            case OP_RETURN: {
+            case OP_PRINT: {
                 printValue(pop());
                 printf("\n");
+                break;
+            }
+            case OP_RETURN: {
                 return INTERPRET_OK;
             }
         }
@@ -171,6 +206,7 @@ static InterpretResult run() {
 #undef READ_BYTE
 #undef READ_CONSTANT
 #undef BINARY_OP
+#undef READ_STRING
 }
 
 // this interprets the source code

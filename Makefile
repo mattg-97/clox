@@ -34,4 +34,4 @@ bear:
 	bear -- make
 
 debug: $(TARGET)
-	lldb $(TARGET)
+	lldb $(TARGET) test
