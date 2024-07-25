@@ -122,7 +122,6 @@ static void advance() {
     for (;;) {
         // uses the scanner to get the current token
         parser.current = scanToken();
-        printf("Token: %d\n", parser.current.type);
         // if its an error then break out of the loop
         if (parser.current.type != TOKEN_ERROR) break;
 
@@ -270,11 +269,13 @@ static void number() {
     // we assume that the number literal has been consumed and is stored in previous
     // then we use the c std library function to parse it to a double
     double value = strtod(parser.previous.start, NULL);
-    printf("Number: %f\n", value);
+    // we can now wrap number in a value before storing it in the constant table
     emitConstant(NUMBER_VAL(value));
 }
 
 static void string() {
+    // the + 1 and - 2 here trim the quotatin marks and just returns the string value itself
+    // it then creates the string object, wraps it in a value and adds it to the constant table
   emitConstant(OBJ_VAL(copyString(parser.previous.start + 1,
                                   parser.previous.length - 2)));
 }
@@ -362,7 +363,18 @@ bool compile(const char* source, Chunk* chunk) {
     // set error flags to false
     parser.hadError = false;
     parser.panicMode = false;
-    /*  TEMP CODE WHICH ALLOWED US TO DEBUG THE COMPILER BEFORE IMPLEMENTATION
+    // primes the scanner
+    advance();
+    // parse a single expression
+    expression();
+    // we should now be at the end of the source code so check for token
+    consume(TOKEN_EOF, "Expect end of expression");
+    // wrap things up
+    endCompiler();
+    // if the parser had no error then compilation was a success so we return true
+    return !parser.hadError;
+}
+/*  TEMP CODE WHICH ALLOWED US TO DEBUG THE COMPILER BEFORE IMPLEMENTATION
     int line = -1;
     for (;;) {
        Token token = scanToken();
@@ -379,14 +391,3 @@ bool compile(const char* source, Chunk* chunk) {
 
        if (token.type == TOKEN_EOF) break;
        }*/
-    // primes the scanner
-    advance();
-    // parse a single expression
-    expression();
-    // we should now be at the end of the source code so check for token
-    consume(TOKEN_EOF, "Expect end of expression");
-    // wrap things up
-    endCompiler();
-    // if the parser had no error then compilation was a success so we return true
-    return !parser.hadError;
-}

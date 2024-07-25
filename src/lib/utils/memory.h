@@ -2,9 +2,12 @@
 #define clox_memory_h
 
 #include <common.h>
+#include "object.h"
 
 #define ALLOCATE(type, count) \
     (type*)reallocate(NULL, 0, sizeof(type) * (count))
+
+#define FREE(type, pointer) reallocate(pointer, sizeof(type), 0)
 
 // this macro calculates a new capacity based on the current capaciuty
 // in order to get the performance we want, it must be scaled based on the
@@ -25,5 +28,6 @@
     reallocate(pointer, sizeof(type) * (oldCount), 0)
 
 void* reallocate(void* pointer, size_t oldSize, size_t newSize);
+void freeObjects();
 
 #endif

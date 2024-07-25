@@ -3,9 +3,11 @@
 
 #include "common.h"
 
-typedef struct Obj Obj;
+typedef struct Obj Obj; // this acts almost like the 'base class' for all objects (if C supported classes)
 typedef struct ObjString ObjString;
 
+// this is the enum for the different types of values that can be stored in
+// the value union, this is used to determine what type of value is stored
 typedef enum {
     VAL_BOOL,
     VAL_NIL,
@@ -15,22 +17,29 @@ typedef enum {
 
 typedef struct {
     ValueType type;
+    // this is a tagged union, the type of the value will determine which
+    // field is used, this is a common pattern in C for storing multiple
+    // types in a single struct
     union {
         bool boolean;
         double number;
-        Obj* obj;
-    } as;
+        Obj* obj; //objects are always stored on the heap
+    } as; // as is a common name for the union in C so we can do as.number etc
 } Value;
 
+// these macros are for checking if the type of a value is a certain type
 #define IS_BOOL(value)    ((value).type == VAL_BOOL)
 #define IS_NIL(value)     ((value).type == VAL_NIL)
 #define IS_NUMBER(value)  ((value).type == VAL_NUMBER)
 #define IS_OBJ(value)     ((value).type == VAL_OBJ)
 
+// each one of these macros takes a c value of the appropriate type and
+// returns a value of the appropriate type, this is a common pattern in C
 #define AS_OBJ(value)     ((value).as.obj)
 #define AS_BOOL(value)    ((value).as.boolean)
 #define AS_NUMBER(value)  ((value).as.number)
 
+// these macros are for creating values of the appropriate type
 #define BOOL_VAL(value)    ((Value){VAL_BOOL, {.boolean = value}})
 #define NIL_VAL            ((Value){VAL_NIL, {.number = 0}})
 #define NUMBER_VAL(value)  ((Value){VAL_NUMBER, {.number = value}})

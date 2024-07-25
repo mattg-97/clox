@@ -12,6 +12,11 @@
 static Obj* allocateObject(size_t size, ObjType type) {
   Obj* object = (Obj*)reallocate(NULL, 0, size);
   object->type = type;
+
+  // so we can track objects now, every time we allocate one we store it in the
+  // objects list
+  object->next = vm.objects;
+  vm.objects = object;
   return object;
 }
 

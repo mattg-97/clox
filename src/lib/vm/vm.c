@@ -18,9 +18,13 @@ static void resetStack() {
 }
 
 static void runtimeError(const char* format, ...) {
+    // this allows us to pass a variadic number of arguments to this function ...^
     va_list args;
+    // add our format arg to the start
     va_start(args, format);
+    // then print the arguments to standard error
     vfprintf(stderr, format, args);
+    // then we end the va list
     va_end(args);
     fputs("\n", stderr);
     size_t instruction = vm.ip - vm.chunk->code - 1;
@@ -31,9 +35,11 @@ static void runtimeError(const char* format, ...) {
 
 void initVM() {
     resetStack();
+    vm.objects = NULL;
 }
 
 void freeVM() {
+    freeObjects();
 }
 
 void push(Value value) {
@@ -60,7 +66,6 @@ static bool isFalsey(Value value) {
 }
 
 static void concatenate() {
-    printf("CONC!\n");
   ObjString* b = AS_STRING(pop());
   ObjString* a = AS_STRING(pop());
 
@@ -145,7 +150,10 @@ static InterpretResult run() {
                 push(BOOL_VAL(isFalsey(pop())));
                 break;
             case OP_NEGATE:
+                // we can now use the macros to check whether the value on top of the stack
+                // is actually a number
                 if (!IS_NUMBER(peek(0))) {
+                    // if not then we cant perform the negation operation so report a runtime error
                     runtimeError("Operand must be a number.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
